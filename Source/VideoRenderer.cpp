@@ -1379,6 +1379,13 @@ STDMETHODIMP CMpcVideoRenderer::Flt_SetBool(LPCSTR field, bool value)
 		return S_OK;
 	}
 
+	if (!strcmp(field, "cmd_clearPreScaleShaders") && value) {
+		CAutoLock cRendererLock(&m_RendererLock);
+
+		m_VideoProcessor->ClearPreScaleShaders();
+		return S_OK;
+	}
+
 	if (!strcmp(field, "statsEnable")) {
 		m_Sets.bShowStats = value;
 		m_VideoProcessor->SetShowStats(m_Sets.bShowStats);

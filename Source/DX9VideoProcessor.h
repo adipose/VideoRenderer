@@ -63,6 +63,7 @@ private:
 	Tex_t m_TexConvertOutput;
 	Tex_t m_TexResize;         // for intermediate result of two-pass resize
 	CTexRing m_TexsPostScale;
+	CTexRing m_TexsPreScale;
 	Tex_t m_TexDither;
 
 	CComPtr<IDirect3DPixelShader9> m_pPSCorrection;
@@ -133,6 +134,7 @@ private:
 	void ReleaseDevice();
 
 	UINT GetPostScaleSteps();
+	UINT GetPreScaleSteps();
 
 	HRESULT InitializeDXVA2VP(const FmtConvParams_t& params, const UINT width, const UINT height);
 	HRESULT InitializeTexVP(const FmtConvParams_t& params, const UINT width, const UINT height);
@@ -189,6 +191,7 @@ public:
 private:
 	void UpdateTexures();
 	void UpdatePostScaleTexures();
+	void UpdatePreScaleTexures();
 	void UpdateUpscalingShaders();
 	void UpdateDownscalingShaders();
 	HRESULT UpdateConvertColorShader();

@@ -71,6 +71,7 @@ private:
 	Tex2D_t m_TexConvertOutput;
 	Tex2D_t m_TexResize;        // for intermediate result of two-pass resize
 	CTex2DRing m_TexsPostScale;
+	CTex2DRing m_TexsPreScale;        // for intermediate presize shader results
 	Tex2D_t m_TexDither;
 
 	// for GetAlignmentSize()
@@ -111,6 +112,7 @@ private:
 	std::vector<ExternalPixelShader11_t> m_pPreScaleShaders;
 	std::vector<ExternalPixelShader11_t> m_pPostScaleShaders;
 	CComPtr<ID3D11Buffer> m_pPostScaleConstants;
+	CComPtr<ID3D11Buffer> m_pPreScaleConstants;
 	CComPtr<ID3D11PixelShader> m_pPSHalfOUtoInterlace;
 	CComPtr<ID3D11PixelShader> m_pPSFinalPass;
 
@@ -212,6 +214,7 @@ private:
 	void ReleaseSwapChain();
 
 	UINT GetPostScaleSteps();
+	UINT GetPreScaleSteps();
 
 	HRESULT CreatePShaderFromResource(ID3D11PixelShader** ppPixelShader, UINT resid);
 	void SetShaderConvertColorParams();
@@ -282,6 +285,7 @@ public:
 private:
 	void UpdateTexures();
 	void UpdatePostScaleTexures();
+	void UpdatePreScaleTexures();
 	void UpdateUpscalingShaders();
 	void UpdateDownscalingShaders();
 	HRESULT UpdateConvertColorShader();

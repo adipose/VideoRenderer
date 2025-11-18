@@ -659,6 +659,7 @@ void CDX11VideoProcessor::ReleaseVP()
 	m_TexConvertOutput.Release();
 	m_TexResize.Release();
 	m_TexsPostScale.Release();
+	m_TexsPreScale.Release();
 
 	m_PSConvColorData.Release();
 	m_pDoviCurvesConstantBuffer.Release();
@@ -709,6 +710,7 @@ void CDX11VideoProcessor::ReleaseDevice()
 
 	m_pCorrectionConstants.Release();
 	m_pPostScaleConstants.Release();
+	m_pPreScaleConstants.Release();
 
 #if TEST_SHADER
 	m_pPS_TEST.Release();
@@ -776,6 +778,17 @@ UINT CDX11VideoProcessor::GetPostScaleSteps()
 	if (m_bFinalPass) {
 		nSteps++;
 	}
+	return nSteps;
+}
+
+UINT CDX11VideoProcessor::GetPreScaleSteps()
+{
+	UINT nSteps = m_pPreScaleShaders.size();
+
+	if (nSteps) {
+		nSteps++; // +1 for the source texture
+	}
+
 	return nSteps;
 }
 
@@ -1265,6 +1278,9 @@ HRESULT CDX11VideoProcessor::SetDevice(ID3D11Device *pDevice, ID3D11DeviceContex
 
 	BufferDesc = { sizeof(PS_EXTSHADER_CONSTANTS), D3D11_USAGE_DEFAULT, D3D11_BIND_CONSTANT_BUFFER, 0, 0, 0 };
 	EXECUTE_ASSERT(S_OK == m_pDevice->CreateBuffer(&BufferDesc, nullptr, &m_pPostScaleConstants));
+
+	// Create constant buffer for PreScale shaders
+	EXECUTE_ASSERT(S_OK == m_pDevice->CreateBuffer(&BufferDesc, nullptr, &m_pPreScaleConstants));
 
 	CComPtr<IDXGIFactory1> pDXGIFactory1;
 	hr = pDXGIAdapter->GetParent(IID_PPV_ARGS(&pDXGIFactory1));
@@ -2573,7 +2589,9 @@ void CDX11VideoProcessor::UpdateTexures()
 	HRESULT hr = S_OK;
 
 	if (m_D3D11VP.IsReady()) {
-		if (m_bVPScaling) {
+		// When presize shaders are active, use source resolution
+		const UINT numPresizeSteps = GetPreScaleSteps();
+		if (m_bVPScaling && numPresizeSteps == 0) {
 			CSize texsize = m_videoRect.Size();
 			hr = m_TexConvertOutput.CheckCreate(m_pDevice, m_D3D11OutputFmt, texsize.cx, texsize.cy, Tex2D_DefaultShaderRTarget);
 			if (FAILED(hr)) {
@@ -2586,6 +2604,8 @@ void CDX11VideoProcessor::UpdateTexures()
 	else {
 		hr = m_TexConvertOutput.CheckCreate(m_pDevice, m_InternalTexFmt, m_srcRectWidth, m_srcRectHeight, Tex2D_DefaultShaderRTarget);
 	}
+
+	UpdatePreScaleTexures();
 }
 
 void CDX11VideoProcessor::UpdatePostScaleTexures()
@@ -2606,6 +2626,37 @@ void CDX11VideoProcessor::UpdatePostScaleTexures()
 	const UINT numPostScaleSteps = GetPostScaleSteps();
 	HRESULT hr = m_TexsPostScale.CheckCreate(m_pDevice, m_InternalTexFmt, m_windowRect.Width(), m_windowRect.Height(), numPostScaleSteps);
 	//UpdateStatsPostProc();
+}
+
+void CDX11VideoProcessor::UpdatePreScaleTexures()
+{
+	m_TexsPreScale.Release();
+
+	if (!m_pPreScaleShaders.size()) {
+		return;
+	}
+
+	// Presize textures use the native resolution before resize
+	UINT width, height;
+
+	if (m_D3D11VP.IsReady()) {
+		// When using D3D11 VP, use convert output size
+		width = m_TexConvertOutput.desc.Width;
+		height = m_TexConvertOutput.desc.Height;
+	} else if (m_PSConvColorData.bEnable) {
+		// When using shader conversion, use convert output size
+		width = m_TexConvertOutput.desc.Width;
+		height = m_TexConvertOutput.desc.Height;
+	} else {
+		// Direct from source video
+		width = m_TexSrcVideo.desc.Width;
+		height = m_TexSrcVideo.desc.Height;
+	}
+
+	const UINT numPreScaleSteps = GetPreScaleSteps();
+	HRESULT hr = m_TexsPreScale.CheckCreate(m_pDevice, m_InternalTexFmt, width, height, numPreScaleSteps);
+
+	DLogIf(FAILED(hr), L"CDX11VideoProcessor::UpdatePreScaleTexures() : m_TexsPreScale.CheckCreate() failed with error {}", HR2Str(hr));
 }
 
 void CDX11VideoProcessor::UpdateUpscalingShaders()
@@ -2986,6 +3037,7 @@ HRESULT CDX11VideoProcessor::Process(ID3D11Texture2D* pRenderTarget, const CRect
 	Tex2D_t* pInputTexture = nullptr;
 
 	const UINT numSteps = GetPostScaleSteps();
+	const UINT numPresizeSteps = GetPreScaleSteps();
 
 	if (m_D3D11VP.IsReady()) {
 		if (!(m_iSwapEffect == SWAPEFFECT_Discard && (m_VendorId == PCIV_AMDATI || m_VendorId == PCIV_INTEL))) {
@@ -2993,7 +3045,7 @@ HRESULT CDX11VideoProcessor::Process(ID3D11Texture2D* pRenderTarget, const CRect
 				(m_TexConvertOutput.desc.Width != dstRect.Width() || m_TexConvertOutput.desc.Height != dstRect.Height() || m_bFlip
 				|| dstRect.right > m_windowRect.right || dstRect.bottom > m_windowRect.bottom)
 				|| (m_bHdrPassthroughSupport && m_bHdrPassthrough); // At least on Nvidia we can sometimes get the "D3D11: Removing Device" error here when HDR Passthrough.
-			if (!bNeedShaderTransform && !numSteps) {
+			if (!bNeedShaderTransform && !numSteps && !numPresizeSteps) {
 				m_bVPScalingUseShaders = false;
 				hr = D3D11VPPass(pRenderTarget, rSrc, dstRect, second);
 
@@ -3001,7 +3053,13 @@ HRESULT CDX11VideoProcessor::Process(ID3D11Texture2D* pRenderTarget, const CRect
 			}
 		}
 
-		CRect rect(0, 0, m_TexConvertOutput.desc.Width, m_TexConvertOutput.desc.Height);
+		// When presize shaders are active, process at native resolution
+		CRect rect;
+		if (numPresizeSteps > 0) {
+			rect = rSrc;
+		} else {
+			rect.SetRect(0, 0, m_TexConvertOutput.desc.Width, m_TexConvertOutput.desc.Height);
+		}
 		hr = D3D11VPPass(m_TexConvertOutput.pTexture, rSrc, rect, second);
 		pInputTexture = &m_TexConvertOutput;
 		rSrc = rect;
@@ -3015,6 +3073,67 @@ HRESULT CDX11VideoProcessor::Process(ID3D11Texture2D* pRenderTarget, const CRect
 	else {
 		pInputTexture = &m_TexSrcVideo;
 	}
+
+	// ============ PRESIZE SHADERS EXECUTION ============
+	if (m_pPreScaleShaders.size()) {
+		// We need presize textures at native resolution
+		if (!m_TexsPreScale.GetFirstTex()) {
+			UpdatePreScaleTexures();
+		}
+
+		if (m_TexsPreScale.GetFirstTex()) {
+			static __int64 preCounter = 0;
+			static long preStart = GetTickCount();
+
+			long preStop = GetTickCount();
+			long preDiff = preStop - preStart;
+			if (preDiff >= 10 * 60 * 1000) {
+				preStart = preStop;
+			}
+
+			Tex2D_t* pPresizeTex = m_TexsPreScale.GetFirstTex();
+			CRect presizeRect(0, 0, pPresizeTex->desc.Width, pPresizeTex->desc.Height);
+
+			if (!pInputTexture) {
+				DLog(L"DX11 Presize: ERROR - pInputTexture is nullptr!");
+				return E_POINTER;
+			}
+
+			PS_EXTSHADER_CONSTANTS ConstData = {
+				{1.0f / pPresizeTex->desc.Width, 1.0f / pPresizeTex->desc.Height },
+				{(float)pPresizeTex->desc.Width, (float)pPresizeTex->desc.Height},
+				preCounter++,
+				(float)preDiff / 1000,
+				0, 0
+			};
+			m_pDeviceContext->UpdateSubresource(m_pPreScaleConstants, 0, nullptr, &ConstData, 0, 0);
+
+			// Apply each presize shader in sequence
+			for (UINT idx = 0; idx < m_pPreScaleShaders.size(); idx++) {
+				ID3D11Texture2D* pRT;
+
+				if (idx + 1 < m_pPreScaleShaders.size()) {
+					// More shaders to come, render to next texture in ring
+					pPresizeTex = m_TexsPreScale.GetNextTex();
+					pRT = pPresizeTex->pTexture;
+				} else {
+					// Last shader, output to final presize texture
+					pPresizeTex = m_TexsPreScale.GetNextTex();
+					pRT = pPresizeTex->pTexture;
+				}
+
+				hr = TextureCopyRect(*pInputTexture, pRT, presizeRect, presizeRect,
+				                     m_pPreScaleShaders[idx].shader, m_pPreScaleConstants, 0, false);
+
+				// Update input for next iteration
+				pInputTexture = pPresizeTex;
+			}
+
+			// After presize shaders, update rSrc to match the texture rect
+			rSrc = presizeRect;
+		}
+	}
+	// ============ END PRESIZE SHADERS ============
 
 	if (numSteps) {
 		UINT step = 0;
@@ -3112,6 +3231,7 @@ void CDX11VideoProcessor::SetVideoRect(const CRect& videoRect)
 	m_videoRect = videoRect;
 	UpdateRenderRect();
 	UpdateTexures();
+	UpdatePreScaleTexures();
 }
 
 HRESULT CDX11VideoProcessor::SetWindowRect(const CRect& windowRect)
@@ -3745,6 +3865,8 @@ void CDX11VideoProcessor::ClearPreScaleShaders()
 		pExtShader.shader.Release();
 	}
 	m_pPreScaleShaders.clear();
+
+	m_TexsPreScale.Release();
 	DLog(L"CDX11VideoProcessor::ClearPreScaleShaders().");
 }
 
@@ -3761,7 +3883,6 @@ void CDX11VideoProcessor::ClearPostScaleShaders()
 
 HRESULT CDX11VideoProcessor::AddPreScaleShader(const std::wstring& name, const std::string& srcCode)
 {
-#ifdef _DEBUG
 	if (!m_pDevice) {
 		return E_ABORT;
 	}
@@ -3773,7 +3894,7 @@ HRESULT CDX11VideoProcessor::AddPreScaleShader(const std::wstring& name, const s
 		hr = m_pDevice->CreatePixelShader(pShaderCode->GetBufferPointer(), pShaderCode->GetBufferSize(), nullptr, &m_pPreScaleShaders.back().shader);
 		if (S_OK == hr) {
 			m_pPreScaleShaders.back().name = name;
-			//UpdatePreScaleTexures(); //TODO
+			UpdatePreScaleTexures();
 			DLog(L"CDX11VideoProcessor::AddPreScaleShader() : \"{}\" pixel shader added successfully.", name);
 		}
 		else {
@@ -3783,14 +3904,12 @@ HRESULT CDX11VideoProcessor::AddPreScaleShader(const std::wstring& name, const s
 		pShaderCode->Release();
 	}
 
+
 	if (S_OK == hr && m_D3D11VP.IsReady() && m_bVPScaling) {
 		return S_FALSE;
 	}
 
 	return hr;
-#else
-	return E_NOTIMPL;
-#endif
 }
 
 HRESULT CDX11VideoProcessor::AddPostScaleShader(const std::wstring& name, const std::string& srcCode)
@@ -3922,6 +4041,9 @@ void CDX11VideoProcessor::UpdateStatsPostProc()
 		if (m_strCorrection) {
 			m_strStatsPostProc += std::format(L" {},", m_strCorrection);
 		}
+		if (m_pPreScaleShaders.size()) {
+			m_strStatsPostProc += std::format(L" preshaders[{}],", m_pPreScaleShaders.size());
+		}
 		if (m_pPostScaleShaders.size()) {
 			m_strStatsPostProc += std::format(L" shaders[{}],", m_pPostScaleShaders.size());
 		}
@@ -3993,6 +4115,9 @@ HRESULT CDX11VideoProcessor::DrawStats(ID3D11Texture2D* pRenderTarget)
 		str.append(L"\nPostProcessing:");
 		if (m_strCorrection) {
 			str += std::format(L" {},", m_strCorrection);
+		}
+		if (m_pPreScaleShaders.size()) {
+			str += std::format(L" preshaders[{}],", m_pPreScaleShaders.size());
 		}
 		if (m_pPostScaleShaders.size()) {
 			str += std::format(L" shaders[{}],", m_pPostScaleShaders.size());

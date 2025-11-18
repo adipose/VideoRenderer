@@ -2639,12 +2639,8 @@ void CDX11VideoProcessor::UpdatePreScaleTexures()
 	// Presize textures use the native resolution before resize
 	UINT width, height;
 
-	if (m_D3D11VP.IsReady()) {
-		// When using D3D11 VP, use convert output size
-		width = m_TexConvertOutput.desc.Width;
-		height = m_TexConvertOutput.desc.Height;
-	} else if (m_PSConvColorData.bEnable) {
-		// When using shader conversion, use convert output size
+	if (m_D3D11VP.IsReady() || m_PSConvColorData.bEnable) {
+		// When using VP or shader conversion, use convert output size
 		width = m_TexConvertOutput.desc.Width;
 		height = m_TexConvertOutput.desc.Height;
 	} else {

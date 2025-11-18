@@ -2224,12 +2224,8 @@ void CDX9VideoProcessor::UpdatePreScaleTexures()
 	// Presize textures use the native resolution before resize
 	UINT width, height;
 
-	if (m_DXVA2VP.IsReady()) {
-		// When using DXVA2 VP, use convert output size
-		width = m_TexConvertOutput.Width;
-		height = m_TexConvertOutput.Height;
-	} else if (m_PSConvColorData.bEnable) {
-		// When using shader conversion, use convert output size
+	if (m_DXVA2VP.IsReady() || m_PSConvColorData.bEnable) {
+		// When using VP or shader conversion, use convert output size
 		width = m_TexConvertOutput.Width;
 		height = m_TexConvertOutput.Height;
 	} else {

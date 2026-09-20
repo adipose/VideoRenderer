@@ -1957,8 +1957,14 @@ BOOL CDX11VideoProcessor::InitMediaType(const CMediaType* pmt)
 								|| m_srcExFmt.VideoTransferFunction == DXVA2_VideoTransFunc_240M;
 
 			if (m_srcExFmt.VideoTransferFunction == MFVideoTransFunc_2084 && !(m_bHdrPassthroughSupport && (m_bHdrPassthrough || m_bHdrLocalToneMapping)) && m_bConvertToSdr) {
-				resId = m_D3D11VP.IsPqSupported() ? IDF_PS_11_CONVERT_PQ_TO_SDR : IDF_PS_11_FIXCONVERT_PQ_TO_SDR;
-				m_strCorrection = L"PQ to SDR";
+				if (m_bSdrToneMapping) {
+					// a separate shader, so the one used without the option is untouched
+					resId = m_D3D11VP.IsPqSupported() ? IDF_PS_11_CONVERT_PQ_TO_SDR_TM : IDF_PS_11_FIXCONVERT_PQ_TO_SDR_TM;
+					m_strCorrection = L"PQ to SDR, tone mapped";
+				} else {
+					resId = m_D3D11VP.IsPqSupported() ? IDF_PS_11_CONVERT_PQ_TO_SDR : IDF_PS_11_FIXCONVERT_PQ_TO_SDR;
+					m_strCorrection = L"PQ to SDR";
+				}
 			}
 			else if (m_srcExFmt.VideoTransferFunction == MFVideoTransFunc_HLG) {
 				if (m_bHdrPassthroughSupport && (m_bHdrPassthrough || m_bHdrLocalToneMapping)) {
@@ -3077,7 +3083,7 @@ HRESULT CDX11VideoProcessor::UpdateConvertColorShader()
 		m_srcWidth,
 		m_TexSrcVideo.desc.Width, m_TexSrcVideo.desc.Height,
 		m_srcRect, m_srcParams, m_srcExFmt, pDOVIMetadata,
-		m_iChromaScaling, convertType, false,
+		m_iChromaScaling, convertType, false, m_bSdrToneMapping,
 		&pShaderCode);
 	if (S_OK == hr) {
 		hr = m_pDevice->CreatePixelShader(pShaderCode->GetBufferPointer(), pShaderCode->GetBufferSize(), nullptr, &m_pPSConvertColor);
@@ -3089,7 +3095,7 @@ HRESULT CDX11VideoProcessor::UpdateConvertColorShader()
 			m_srcWidth,
 			m_TexSrcVideo.desc.Width, m_TexSrcVideo.desc.Height,
 			m_srcRect, m_srcParams, m_srcExFmt, pDOVIMetadata,
-			m_iChromaScaling, convertType, true,
+			m_iChromaScaling, convertType, true, m_bSdrToneMapping,
 			&pShaderCode);
 		if (S_OK == hr) {
 			hr = m_pDevice->CreatePixelShader(pShaderCode->GetBufferPointer(), pShaderCode->GetBufferSize(), nullptr, &m_pPSConvertColorDeint);

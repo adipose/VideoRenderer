@@ -1,16 +1,19 @@
+// ps_convert_pq_to_sdr with the curve built from the content's brightness instead of the fixed one.
+// Used only when that option is on, so the shader for the option off stays exactly as it was.
 Texture2D tex : register(t0);
 SamplerState samp : register(s0);
 
 cbuffer PS_PARAMETERS : register(b0)
 {
     float LuminanceScale;
-    float param2;
+    float param2; // the content peak in nits, 0 when there is nothing usable
 };
 
 #include "../convert/conv_matrix.hlsl"
 #include "../convert/st2084.hlsl"
 #include "../convert/hdr_tone_mapping.hlsl"
 #include "../convert/colorspace_gamut_conversion.hlsl"
+#include "../convert/hdr_tone_mapping_spline.hlsl"
 
 struct PS_INPUT
 {
@@ -26,7 +29,7 @@ float4 main(PS_INPUT input) : SV_Target
     color = saturate(color);
     color = ST2084ToLinear(color, LuminanceScale);
 
-    color.rgb = ToneMappingHable(color.rgb);
+    color.rgb = ToneMappingSdr(color.rgb, LuminanceScale, param2, convert_matrix_2020_to_709);
     color.rgb = Colorspace_Gamut_Conversion_2020_to_709(color.rgb);
 
     // Linear to sRGB

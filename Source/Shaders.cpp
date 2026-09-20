@@ -878,7 +878,7 @@ HRESULT GetShaderConvertColor(
 		}
 		code.append(
 			"color = ST2084ToLinear(color, LuminanceScale);\n"
-			"color.rgb = ToneMappingSdr(color.rgb, LuminanceScale, param2);\n"
+			"color.rgb = ToneMappingSdr(color.rgb, LuminanceScale, param2, matrix_conv_prim);\n"
 			"color.rgb = mul(matrix_conv_prim, color.rgb);\n"
 		);
 		isLinear = true;

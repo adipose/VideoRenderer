@@ -919,9 +919,10 @@ float CDX11VideoProcessor::GetSdrToneMappingPeak() const
 	if (!m_bSdrToneMapping) {
 		return 0.0f;
 	}
-	float peak = m_hdr10.bValid ? static_cast<float>(m_hdr10.hdr10.MaxContentLightLevel) : 0.0f;
-	if (peak <= 10.0f && m_hdr10.bValid) {
-		peak = m_hdr10.hdr10.MaxMasteringLuminance / 10000.0f;
+	const auto& meta = m_hdr10.bValid ? m_hdr10 : m_lastHdr10;
+	float peak = meta.bValid ? static_cast<float>(meta.hdr10.MaxContentLightLevel) : 0.0f;
+	if (peak <= 10.0f && meta.bValid) {
+		peak = meta.hdr10.MaxMasteringLuminance / 10000.0f;
 	}
 	if (peak <= 10.0f) {
 		peak = 1000.0f; // nothing usable in the metadata
@@ -2299,7 +2300,8 @@ HRESULT CDX11VideoProcessor::CopySample(IMediaSample* pSample)
 
 	m_hdr10 = {};
 	if (CComQIPtr<IMediaSideData> pMediaSideData = pSample) {
-		if (SourceIsHDR10orHLG() && (m_bHdrPassthrough || m_bHdrLocalToneMapping)) {
+		// m_bSdrToneMapping needs it too, and that path runs with the other two off
+		if (SourceIsHDR10orHLG() && (m_bHdrPassthrough || m_bHdrLocalToneMapping || m_bSdrToneMapping)) {
 			MediaSideDataHDR* hdr = nullptr;
 			size_t size = 0;
 			hr = pMediaSideData->GetSideData(IID_MediaSideDataHDR, (const BYTE**)&hdr, &size);
@@ -2332,6 +2334,9 @@ HRESULT CDX11VideoProcessor::CopySample(IMediaSample* pSample)
 			if (SUCCEEDED(hr) && size == sizeof(MediaSideDataHDRContentLightLevel)) {
 				m_hdr10.hdr10.MaxContentLightLevel      = hdrCLL->MaxCLL;
 				m_hdr10.hdr10.MaxFrameAverageLightLevel = hdrCLL->MaxFALL;
+				if (m_bSdrToneMapping) {
+					SetShaderLuminanceParams(); // the curve is built from this
+				}
 			}
 		}
 

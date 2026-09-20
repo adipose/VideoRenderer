@@ -13,20 +13,24 @@ float3 ToneMappingHable(const float3 rgb)
 }
 
 // ---- Spline tone mapping ------------------------------------------------------------------------
-// The same curve and color model the HDR10 local tone mapping uses, in a form the HDR to SDR
-// conversion can call: BT.2020 linear light, nits in and nits out, content peak P onto display
-// peak D.  Hable above knows nothing about how bright the content is, so it compresses a 400 nit
-// scene as hard as a 4000 nit one; this does not.
+// A curve and color model for the HDR to SDR conversion: BT.2020 linear light, nits in and nits
+// out, content peak P onto display peak D.  Hable above knows nothing about how bright the content
+// is, so it compresses a 400 nit scene as hard as a 4000 nit one; this does not.
 //
 //   the gray curve  the Hermite spline of BT.2390 in PQ, knee at 1.5 * PQ(D) - 0.5 so it follows
 //                   the display and not the content, flat at max(P, 4000 nits)
 //   color           the curve is given a saturation weighted mix of luminance and largest channel,
 //                   mixed towards a per channel curve in LMS so very bright colors drift in hue
 //                   and turn paler instead of clipping
+//
+// Saturation is taken on PQ encoded values rather than linear light.  In linear light almost every
+// pixel of real content that carries any tint at all reads as nearly fully saturated, so weighting
+// by it compresses colored mid tones about twice as hard as it should; on a real 4K frame that was
+// a 13% shortfall against an 8% one.  A test chart cannot tell the two apart, because chart colors
+// read as saturated on either scale, which is why this was not visible in the patch fit.
 static const float kSplineFlatAt = 4000.0f;
-static const float kSplineLmsShare = 0.17f;
-static const float kSplineFadeGain = 0.415f;
-static const float kSplineFadePower = 1.29f;
+static const float kSplineLmsShare = 0.2003f;
+static const float kSplineLmsPower = 2.73f;
 static const float3x3 kSplineRgbToLms = float3x3(
 	0.412109375f, 0.523925781f, 0.063964844f,
 	0.166748047f, 0.720458984f, 0.112792969f,
@@ -48,7 +52,11 @@ inline float SplineCurve(float nits, float knee, float width, float endVal, floa
 	return ST2084ToLinear(min(h, top), 10000.0f).x;
 }
 
-float3 ToneMappingSpline(float3 nits, float D, float P)
+// toDisplay converts BT.2020 to the primaries being shown.  It is needed because how far a color
+// overshoots has to be judged on the channels the display will actually get, not on BT.2020: a
+// saturated color that fits in BT.2020 can still be well outside BT.709, and judging it before the
+// conversion leaves it to be clipped a channel at a time afterwards.
+float3 ToneMappingSpline(float3 nits, float D, float P, float3x3 toDisplay)
 {
 	const float M = max(nits.r, max(nits.g, nits.b));
 	if (M <= 0.000001f || P <= D)
@@ -69,9 +77,10 @@ float3 ToneMappingSpline(float3 nits, float D, float P)
 	const float Y = 0.2627f * nits.r + 0.6780f * nits.g + 0.0593f * nits.b;
 	if (Y <= 0.000001f)
 		return nits;
-	const float s = saturate(1.0f - min(nits.r, min(nits.g, nits.b)) / M);
-	const float s2 = s * s;
-	const float N = Y * pow(max(M / Y, 1.0f), s2 * s2);
+	const float3 e = LinearToST2084(float4(nits, 0.0f), 10000.0f).rgb;
+	const float eMax = max(e.r, max(e.g, e.b));
+	const float s = (eMax > 0.000001f) ? saturate(1.0f - min(e.r, min(e.g, e.b)) / eMax) : 0.0f;
+	const float N = Y * pow(max(M / Y, 1.0f), s);
 	const float3 S = nits * (SplineCurve(N, knee, width, endVal, top) / N);
 
 	const float3 lms = max(mul(kSplineRgbToLms, nits), 0.0f);
@@ -80,25 +89,22 @@ float3 ToneMappingSpline(float3 nits, float D, float P)
 		SplineCurve(lms.y, knee, width, endVal, top),
 		SplineCurve(lms.z, knee, width, endVal, top))), 0.0f);
 
-	const float rho = max(max(S.r, max(S.g, S.b)) / D, 1.0f);
-	const float mu = kSplineLmsShare + (1.0f - kSplineLmsShare) * (1.0f - 1.0f / (rho * rho));
-	float3 c = max(lerp(S, PC, mu), 0.0f);
+	const float3 Sd = mul(toDisplay, S);
+	const float rho = max(max(Sd.r, max(Sd.g, Sd.b)) / D, 1.0f);
+	const float mu = kSplineLmsShare + (1.0f - kSplineLmsShare) * (1.0f - pow(rho, -kSplineLmsPower));
+	const float3 c = max(lerp(S, PC, mu), 0.0f);
 
-	const float compress = saturate(1.0f - D / P);
-	const float Yout = 0.2627f * c.r + 0.6780f * c.g + 0.0593f * c.b;
-	const float k = min(kSplineFadeGain * compress * pow(max((c.r + c.g + c.b) / (3.0f * D), 0.0f), kSplineFadePower), 1.0f);
-	c = Yout + (c - Yout) * (1.0f - k);
-
-	const float m = max(c.r, max(c.g, c.b));
+	const float3 d = mul(toDisplay, c);
+	const float m = max(d.r, max(d.g, d.b));
 	return (m > D) ? c * (D / m) : c;
 }
 
 // rgb is scaled so that 1.0 is the display's white; param2 carries the content peak in nits, and
 // is 0 when the option is off, which keeps the old fixed curve.
-float3 ToneMappingSdr(float3 rgb, float luminanceScale, float contentNits)
+float3 ToneMappingSdr(float3 rgb, float luminanceScale, float contentNits, float3x3 toDisplay)
 {
 	if (contentNits <= 0.0f)
 		return ToneMappingHable(rgb);
 	const float D = 10000.0f / max(luminanceScale, 0.0001f);
-	return ToneMappingSpline(rgb * D, D, contentNits) / D;
+	return ToneMappingSpline(rgb * D, D, contentNits, toDisplay) / D;
 }

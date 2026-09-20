@@ -128,6 +128,7 @@ struct Settings_t {
 	int  iHdrToggleDisplay;
 	int  iHdrOsdBrightness;
 	bool bConvertToSdr;
+	bool bSdrToneMapping;
 	int  iSDRDisplayNits;
 	bool bHdrLocalToneMapping;
 	int  iHdrLocalToneMappingType;
@@ -180,6 +181,7 @@ struct Settings_t {
 		}
 		iHdrToggleDisplay               = HDRTD_Disabled;
 		bConvertToSdr                   = true;
+		bSdrToneMapping                 = false;
 		iHdrOsdBrightness               = 0;
 		iSDRDisplayNits                 = SDR_NITS_DEF;
 	}

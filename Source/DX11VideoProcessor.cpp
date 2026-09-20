@@ -413,6 +413,7 @@ CDX11VideoProcessor::CDX11VideoProcessor(CMpcVideoRenderer* pFilter, const Setti
 	m_iHdrToggleDisplay    = config.iHdrToggleDisplay;
 	m_iHdrOsdBrightness    = config.iHdrOsdBrightness;
 	m_bConvertToSdr        = config.bConvertToSdr;
+	m_bSdrToneMapping      = config.bSdrToneMapping;
 	m_iSDRDisplayNits      = config.iSDRDisplayNits;
 
 	m_nCurrentAdapter = -1;
@@ -911,9 +912,26 @@ void CDX11VideoProcessor::SetShaderConvertColorParams()
 	}
 }
 
+// The peak that the HDR to SDR conversion maps onto the display's white: what the file claims,
+// clamped to something usable.  0 turns the option off and leaves the fixed curve in place.
+float CDX11VideoProcessor::GetSdrToneMappingPeak() const
+{
+	if (!m_bSdrToneMapping) {
+		return 0.0f;
+	}
+	float peak = m_hdr10.bValid ? static_cast<float>(m_hdr10.hdr10.MaxContentLightLevel) : 0.0f;
+	if (peak <= 10.0f && m_hdr10.bValid) {
+		peak = m_hdr10.hdr10.MaxMasteringLuminance / 10000.0f;
+	}
+	if (peak <= 10.0f) {
+		peak = 1000.0f; // nothing usable in the metadata
+	}
+	return std::clamp(peak, static_cast<float>(m_iSDRDisplayNits) + 1.0f, 10000.0f);
+}
+
 void CDX11VideoProcessor::SetShaderLuminanceParams()
 {
-	FLOAT cbuffer[4] = { 10000.0f / m_iSDRDisplayNits, 0, 0, 0 };
+	FLOAT cbuffer[4] = { 10000.0f / m_iSDRDisplayNits, GetSdrToneMappingPeak(), 0, 0 };
 
 	if (m_pCorrectionConstants) {
 		m_pDeviceContext->UpdateSubresource(m_pCorrectionConstants, 0, nullptr, &cbuffer, 0, 0);
@@ -4125,6 +4143,11 @@ void CDX11VideoProcessor::Configure(const Settings_t& config)
 			changeHDR = true;
 		}
 		m_iHdrToggleDisplay = config.iHdrToggleDisplay;
+	}
+
+	if (config.bSdrToneMapping != m_bSdrToneMapping) {
+		m_bSdrToneMapping = config.bSdrToneMapping;
+		changeHDR = true; // the conversion shader carries the curve
 	}
 
 	if (config.bConvertToSdr != m_bConvertToSdr) {

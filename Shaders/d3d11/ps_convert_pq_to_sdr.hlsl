@@ -26,7 +26,7 @@ float4 main(PS_INPUT input) : SV_Target
     color = saturate(color);
     color = ST2084ToLinear(color, LuminanceScale);
 
-    color.rgb = ToneMappingHable(color.rgb);
+    color.rgb = ToneMappingSdr(color.rgb, LuminanceScale, param2);
     color.rgb = Colorspace_Gamut_Conversion_2020_to_709(color.rgb);
 
     // Linear to sRGB

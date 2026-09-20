@@ -108,6 +108,7 @@ void CVRMainPPage::SetControls()
 
 	CheckDlgButton(IDC_CHECK18, m_SetsPP.bHdrPreferDoVi       ? BST_CHECKED : BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECK14, m_SetsPP.bConvertToSdr        ? BST_CHECKED : BST_UNCHECKED);
+	CheckDlgButton(IDC_CHECK20, m_SetsPP.bSdrToneMapping      ? BST_CHECKED : BST_UNCHECKED);
 
 	SendDlgItemMessageW(IDC_COMBO7, CB_SETCURSEL, m_SetsPP.iHdrToggleDisplay, 0);
 	SendDlgItemMessageW(IDC_SLIDER1, TBM_SETPOS, 1, m_SetsPP.iHdrOsdBrightness);
@@ -164,6 +165,7 @@ void CVRMainPPage::EnableControls()
 #endif
 	}
 
+	GetDlgItem(IDC_CHECK20).EnableWindow(m_SetsPP.bConvertToSdr);
 	GetDlgItem(IDC_STATIC8).EnableWindow(m_SetsPP.bConvertToSdr);
 	GetDlgItem(IDC_EDIT1).EnableWindow(m_SetsPP.bConvertToSdr);
 	GetDlgItem(IDC_SLIDER2).EnableWindow(m_SetsPP.bConvertToSdr);
@@ -417,6 +419,11 @@ INT_PTR CVRMainPPage::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPAR
 			}
 			if (nID == IDC_CHECK18) {
 				m_SetsPP.bHdrPreferDoVi = IsDlgButtonChecked(IDC_CHECK18) == BST_CHECKED;
+				SetDirty();
+				return (LRESULT)1;
+			}
+			if (nID == IDC_CHECK20) {
+				m_SetsPP.bSdrToneMapping = IsDlgButtonChecked(IDC_CHECK20) == BST_CHECKED;
 				SetDirty();
 				return (LRESULT)1;
 			}

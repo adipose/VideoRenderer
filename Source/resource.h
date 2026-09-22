@@ -89,6 +89,10 @@
 #define IDF_PS_11_FINAL_PASS            880
 #define IDF_PS_11_FINAL_PASS_10         881
 #define IDF_PS_11_HDR10_TONEMAP         882
+#define IDF_CS_11_HDR_HIST              884
+#define IDF_CS_11_HDR_RESOLVE           885
+#define IDF_PS_11_CONVERT_PQ_TO_SDR_TM_MEASURED 886
+#define IDF_PS_11_FIXCONVERT_PQ_TO_SDR_TM_MEASURED 887
 #define IDF_PS_11_TEST                  900
 #define IDC_EDIT1                       1001
 #define IDC_EDIT2                       1002
@@ -136,6 +140,15 @@
 #define IDC_COMBO10                     1063
 #define IDC_STATIC99                    1064
 #define IDC_STATIC100                   1065
+#define IDC_STATIC_SDRPRESET            1066
+#define IDC_COMBO_SDRPRESET             1067
+#define IDC_CHECK_SDRMEASURE            1068
+#define IDC_STATIC_SDRWINDOW            1069
+#define IDC_EDIT_SDRWINDOW              1070
+#define IDC_STATIC_SDRWINDOWS           1071
+#define IDC_STATIC_SDRFLOOR             1072
+#define IDC_EDIT_SDRFLOOR               1073
+#define IDC_STATIC_SDRFLOORNITS         1074
 
 // Next default values for new objects
 // 
@@ -143,7 +156,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        106
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1066
+#define _APS_NEXT_CONTROL_VALUE         1075
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

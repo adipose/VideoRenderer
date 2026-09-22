@@ -90,6 +90,13 @@ enum :int {
 #define SDR_NITS_MAX 400
 #define SDR_NITS_STEP  5
 
+#define SDR_PEAK_WINDOW_DEF 3000 // ms
+#define SDR_PEAK_WINDOW_MIN    0
+#define SDR_PEAK_WINDOW_MAX 10000
+#define SDR_PEAK_FLOOR_DEF   640 // nits
+#define SDR_PEAK_FLOOR_MIN     0
+#define SDR_PEAK_FLOOR_MAX 10000
+
 constexpr inline auto HDR_NITS_DEF = 1000;
 constexpr inline auto HDR_NITS_MIN = 100;
 constexpr inline auto HDR_NITS_MAX = 10000;
@@ -129,6 +136,9 @@ struct Settings_t {
 	int  iHdrOsdBrightness;
 	bool bConvertToSdr;
 	bool bSdrToneMapping;
+	bool bSdrMeasurePeak;
+	int  iSdrPeakWindowMs;
+	int  iSdrPeakFloorNits;
 	int  iSDRDisplayNits;
 	bool bHdrLocalToneMapping;
 	int  iHdrLocalToneMappingType;
@@ -182,6 +192,9 @@ struct Settings_t {
 		iHdrToggleDisplay               = HDRTD_Disabled;
 		bConvertToSdr                   = true;
 		bSdrToneMapping                 = false;
+		bSdrMeasurePeak                 = false;
+		iSdrPeakWindowMs                = SDR_PEAK_WINDOW_DEF;
+		iSdrPeakFloorNits               = SDR_PEAK_FLOOR_DEF;
 		iHdrOsdBrightness               = 0;
 		iSDRDisplayNits                 = SDR_NITS_DEF;
 	}

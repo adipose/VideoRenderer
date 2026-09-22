@@ -73,6 +73,9 @@ protected:
 	int  m_iHdrOsdBrightness               = 0;
 	bool m_bConvertToSdr                   = true;
 	bool m_bSdrToneMapping                 = false;
+	bool m_bSdrMeasurePeak                 = false;
+	int  m_iSdrPeakWindowMs                = SDR_PEAK_WINDOW_DEF;
+	int  m_iSdrPeakFloorNits               = SDR_PEAK_FLOOR_DEF;
 	int  m_iSDRDisplayNits                 = SDR_NITS_DEF;
 
 	bool m_bVPScalingUseShaders = false;

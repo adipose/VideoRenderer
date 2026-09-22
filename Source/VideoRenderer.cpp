@@ -72,6 +72,7 @@
 #define OPT_SdrMeasurePeak                 L"SdrMeasurePeak"
 #define OPT_SdrPeakWindowMs                L"SdrPeakWindowMs"
 #define OPT_SdrPeakFloorNits               L"SdrPeakFloorNits"
+#define OPT_SdrPeakSceneCuts               L"SdrPeakSceneCuts"
 
 static std::atomic_int g_nInstance = 0;
 static const wchar_t g_szClassName[] = L"VRWindow";
@@ -301,6 +302,9 @@ CMpcVideoRenderer::CMpcVideoRenderer(LPUNKNOWN pUnk, HRESULT* phr)
 		}
 		if (ERROR_SUCCESS == key.QueryDWORDValue(OPT_SdrPeakFloorNits, dw)) {
 			m_Sets.iSdrPeakFloorNits = discard<int>(dw, SDR_PEAK_FLOOR_DEF, SDR_PEAK_FLOOR_MIN, SDR_PEAK_FLOOR_MAX);
+		}
+		if (ERROR_SUCCESS == key.QueryDWORDValue(OPT_SdrPeakSceneCuts, dw)) {
+			m_Sets.bSdrPeakSceneCuts = !!dw;
 		}
 		if (ERROR_SUCCESS == key.QueryDWORDValue(OPT_DisplayNits, dw)) {
 			m_Sets.iSDRDisplayNits = discard<int>(dw, SDR_NITS_DEF, SDR_NITS_MIN, SDR_NITS_MAX);
@@ -1361,6 +1365,7 @@ STDMETHODIMP CMpcVideoRenderer::SaveSettings()
 		key.SetDWORDValue(OPT_SdrMeasurePeak,      m_Sets.bSdrMeasurePeak);
 		key.SetDWORDValue(OPT_SdrPeakWindowMs,     m_Sets.iSdrPeakWindowMs);
 		key.SetDWORDValue(OPT_SdrPeakFloorNits,    m_Sets.iSdrPeakFloorNits);
+		key.SetDWORDValue(OPT_SdrPeakSceneCuts,    m_Sets.bSdrPeakSceneCuts);
 		key.SetDWORDValue(OPT_DisplayNits,         m_Sets.iSDRDisplayNits);
 	}
 

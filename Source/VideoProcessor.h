@@ -76,6 +76,7 @@ protected:
 	bool m_bSdrMeasurePeak                 = false;
 	int  m_iSdrPeakWindowMs                = SDR_PEAK_WINDOW_DEF;
 	int  m_iSdrPeakFloorNits               = SDR_PEAK_FLOOR_DEF;
+	bool m_bSdrPeakSceneCuts               = false;
 	int  m_iSDRDisplayNits                 = SDR_NITS_DEF;
 
 	bool m_bVPScalingUseShaders = false;

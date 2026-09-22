@@ -417,6 +417,7 @@ CDX11VideoProcessor::CDX11VideoProcessor(CMpcVideoRenderer* pFilter, const Setti
 	m_bSdrMeasurePeak      = config.bSdrMeasurePeak;
 	m_iSdrPeakWindowMs     = config.iSdrPeakWindowMs;
 	m_iSdrPeakFloorNits    = config.iSdrPeakFloorNits;
+	m_bSdrPeakSceneCuts    = config.bSdrPeakSceneCuts;
 	m_iSDRDisplayNits      = config.iSDRDisplayNits;
 
 	m_nCurrentAdapter = -1;
@@ -939,6 +940,7 @@ constexpr UINT  kHdrHistBins       = 1024;    // must match HIST_BINS in cs_hdr_
 constexpr float kHdrPeakFraction   = 1.0e-4f; // share of pixels that may be brighter than the reported peak
 constexpr float kHdrReleaseSeconds = 1.0f;    // time for the peak to relax towards a lower measurement, with no window
 constexpr float kHdrSceneCutPQ     = 0.10f;   // a change larger than this (in PQ) is taken as a scene change
+constexpr float kHdrNoSceneCutPQ   = 2.0f;    // more than any change in mean PQ can be: the window never restarts
 constexpr UINT  kHdrStateHead      = 5;       // must match STATE_HEAD in cs_hdr_resolve.hlsl
 constexpr UINT  kHdrWindowFrames   = 512;     // must match WINDOW_SIZE in cs_hdr_resolve.hlsl
 
@@ -1097,9 +1099,10 @@ HRESULT CDX11VideoProcessor::MeasureHdrPeak(const Tex2D_t& tex, const CRect& rec
 		{ static_cast<UINT>(r.left), static_cast<UINT>(r.top) },
 		{ static_cast<UINT>(r.Width()), static_cast<UINT>(r.Height()) }
 	};
-	// the peak is the mean of the frame peaks over the window, restarted at a scene change
+	// the peak is the mean of the frame peaks over the window, restarted at a scene change if
+	// that is wanted.  madVR never restarts it, so off is what matches madVR.
 	const HdrResolveConstants_t resolveConstants = {
-		frameTime, kHdrReleaseSeconds, kHdrSceneCutPQ, kHdrPeakFraction,
+		frameTime, kHdrReleaseSeconds, m_bSdrPeakSceneCuts ? kHdrSceneCutPQ : kHdrNoSceneCutPQ, kHdrPeakFraction,
 		m_iSdrPeakWindowMs / 1000.0f, static_cast<float>(m_iSdrPeakFloorNits)
 	};
 	m_pDeviceContext->UpdateSubresource(m_pHdrMeasureConstants, 0, nullptr, &measureConstants, 0, 0);
@@ -4415,6 +4418,7 @@ void CDX11VideoProcessor::Configure(const Settings_t& config)
 	// read every frame by the measurement, so nothing needs rebuilding
 	m_iSdrPeakWindowMs = config.iSdrPeakWindowMs;
 	m_iSdrPeakFloorNits = config.iSdrPeakFloorNits;
+	m_bSdrPeakSceneCuts = config.bSdrPeakSceneCuts;
 
 	if (config.bConvertToSdr != m_bConvertToSdr) {
 		m_bConvertToSdr = config.bConvertToSdr;

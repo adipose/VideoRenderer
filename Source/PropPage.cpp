@@ -87,13 +87,15 @@ struct SdrPreset_t {
 	const wchar_t* name;
 	bool toneMap;
 	bool measure;
-	int  windowMs;  // these two only count while the brightness is measured
+	int  windowMs;  // these three only count while the brightness is measured
 	int  floorNits;
+	bool sceneCuts;
 };
 static const SdrPreset_t s_SdrPresets[] = {
-	{ L"Fixed",    false, false, SDR_PEAK_WINDOW_DEF, SDR_PEAK_FLOOR_DEF }, // the fixed curve
-	{ L"Metadata", true,  false, SDR_PEAK_WINDOW_DEF, SDR_PEAK_FLOOR_DEF }, // the curve from the file's peak
-	{ L"Angry",    true,  true,  3000,                640 },                // measured, as madVR does it
+	{ L"Fixed",    false, false, SDR_PEAK_WINDOW_DEF, SDR_PEAK_FLOOR_DEF, false }, // the fixed curve
+	{ L"Metadata", true,  false, SDR_PEAK_WINDOW_DEF, SDR_PEAK_FLOOR_DEF, false }, // the curve from the file's peak
+	{ L"Angry",    true,  true,  3000,                640,                false }, // measured, as madVR does it
+	{ L"Angry+",   true,  true,  3000,                640,                true  }, // and restarted at scene changes
 };
 
 bool CVRMainPPage::ReadSdrPeakWindowMs(int& windowMs)
@@ -143,7 +145,8 @@ void CVRMainPPage::UpdateSdrPreset()
 		if (p.toneMap && p.measure != m_SetsPP.bSdrMeasurePeak) {
 			continue;
 		}
-		if (p.toneMap && p.measure && !(bNumbers && p.windowMs == windowMs && p.floorNits == floorNits)) {
+		if (p.toneMap && p.measure && !(bNumbers && p.windowMs == windowMs && p.floorNits == floorNits
+				&& p.sceneCuts == m_SetsPP.bSdrPeakSceneCuts)) {
 			continue;
 		}
 		found = i;
@@ -159,6 +162,9 @@ void CVRMainPPage::ApplySdrPreset(const int index)
 	const SdrPreset_t& p = s_SdrPresets[index];
 	m_SetsPP.bSdrToneMapping = p.toneMap;
 	m_SetsPP.bSdrMeasurePeak = p.measure;
+	if (p.measure) {
+		m_SetsPP.bSdrPeakSceneCuts = p.sceneCuts;
+	}
 
 	// only the controls a preset owns: anything typed elsewhere on the page stays as it is
 	m_bApplyingSdrPreset = true;
@@ -167,6 +173,7 @@ void CVRMainPPage::ApplySdrPreset(const int index)
 	if (p.measure) {
 		SetDlgItemTextW(IDC_EDIT_SDRWINDOW, std::format(L"{:.1f}", p.windowMs / 1000.0).c_str());
 		SetDlgItemTextW(IDC_EDIT_SDRFLOOR, std::to_wstring(p.floorNits).c_str());
+		CheckDlgButton(IDC_CHECK_SDRSCENECUTS, p.sceneCuts ? BST_CHECKED : BST_UNCHECKED);
 	}
 	m_bApplyingSdrPreset = false;
 
@@ -204,6 +211,7 @@ void CVRMainPPage::SetControls()
 	CheckDlgButton(IDC_CHECK14, m_SetsPP.bConvertToSdr        ? BST_CHECKED : BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECK20, m_SetsPP.bSdrToneMapping      ? BST_CHECKED : BST_UNCHECKED);
 	CheckDlgButton(IDC_CHECK_SDRMEASURE, m_SetsPP.bSdrMeasurePeak ? BST_CHECKED : BST_UNCHECKED);
+	CheckDlgButton(IDC_CHECK_SDRSCENECUTS, m_SetsPP.bSdrPeakSceneCuts ? BST_CHECKED : BST_UNCHECKED);
 	m_bApplyingSdrPreset = true; // filling the page is not an edit
 	SetDlgItemTextW(IDC_EDIT_SDRWINDOW, std::format(L"{:.1f}", m_SetsPP.iSdrPeakWindowMs / 1000.0).c_str());
 	SetDlgItemTextW(IDC_EDIT_SDRFLOOR, std::to_wstring(m_SetsPP.iSdrPeakFloorNits).c_str());
@@ -273,7 +281,7 @@ void CVRMainPPage::EnableControls()
 		GetDlgItem(IDC_CHECK_SDRMEASURE).EnableWindow(bMeasure);
 		const BOOL bTuning = bMeasure && m_SetsPP.bSdrMeasurePeak;
 		for (const int id : { IDC_STATIC_SDRWINDOW, IDC_EDIT_SDRWINDOW, IDC_STATIC_SDRWINDOWS,
-				IDC_STATIC_SDRFLOOR, IDC_EDIT_SDRFLOOR, IDC_STATIC_SDRFLOORNITS }) {
+				IDC_STATIC_SDRFLOOR, IDC_EDIT_SDRFLOOR, IDC_STATIC_SDRFLOORNITS, IDC_CHECK_SDRSCENECUTS }) {
 			GetDlgItem(id).EnableWindow(bTuning);
 		}
 	}
@@ -541,6 +549,12 @@ INT_PTR CVRMainPPage::OnReceiveMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPAR
 			if (nID == IDC_CHECK20) {
 				m_SetsPP.bSdrToneMapping = IsDlgButtonChecked(IDC_CHECK20) == BST_CHECKED;
 				EnableControls();
+				UpdateSdrPreset();
+				SetDirty();
+				return (LRESULT)1;
+			}
+			if (nID == IDC_CHECK_SDRSCENECUTS) {
+				m_SetsPP.bSdrPeakSceneCuts = IsDlgButtonChecked(IDC_CHECK_SDRSCENECUTS) == BST_CHECKED;
 				UpdateSdrPreset();
 				SetDirty();
 				return (LRESULT)1;

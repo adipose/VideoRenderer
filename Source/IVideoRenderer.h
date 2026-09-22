@@ -139,6 +139,7 @@ struct Settings_t {
 	bool bSdrMeasurePeak;
 	int  iSdrPeakWindowMs;
 	int  iSdrPeakFloorNits;
+	bool bSdrPeakSceneCuts;
 	int  iSDRDisplayNits;
 	bool bHdrLocalToneMapping;
 	int  iHdrLocalToneMappingType;
@@ -195,6 +196,7 @@ struct Settings_t {
 		bSdrMeasurePeak                 = false;
 		iSdrPeakWindowMs                = SDR_PEAK_WINDOW_DEF;
 		iSdrPeakFloorNits               = SDR_PEAK_FLOOR_DEF;
+		bSdrPeakSceneCuts               = false;
 		iHdrOsdBrightness               = 0;
 		iSDRDisplayNits                 = SDR_NITS_DEF;
 	}

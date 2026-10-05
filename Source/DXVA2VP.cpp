@@ -354,8 +354,12 @@ HRESULT CDXVA2VP::InitVideoProcessor(
 
 	m_BltParams.DestFormat.value = 0; // output to RGB
 	m_BltParams.DestFormat.SampleFormat = DXVA2_SampleProgressiveFrame; // output to progressive RGB
-	if (exFmt.NominalRange == DXVA2_NominalRange_0_255 && (m_VendorId == PCIV_NVIDIA || m_VendorId == PCIV_AMDATI)) {
-		// hack for Nvidia and AMD, nothing helps Intel
+	if (m_VendorId == PCIV_NVIDIA || m_VendorId == PCIV_AMDATI) {
+		// hack for Nvidia and AMD, nothing helps Intel.  Asking these drivers for 16-235 is what
+		// gets full range RGB out of them.  Asking for 0-255 leaves a 16-235 source unexpanded,
+		// which lifts black and lowers white over the whole picture.  This was already done for
+		// full range sources; 16-235 ones need it too, and they are nearly all the content there
+		// is.  Full range sources come out wrong either way, on this path and on D3D11 alike.
 		m_BltParams.DestFormat.NominalRange = DXVA2_NominalRange_16_235;
 	} else {
 		// output to full range RGB

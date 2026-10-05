@@ -277,8 +277,7 @@ void CVRMainPPage::EnableControls()
 	GetDlgItem(IDC_STATIC_SDRPRESET).EnableWindow(m_SetsPP.bConvertToSdr);
 	GetDlgItem(IDC_COMBO_SDRPRESET).EnableWindow(m_SetsPP.bConvertToSdr);
 	{
-		// measuring each frame needs the compute shaders, which are Direct3D 11 only
-		const BOOL bMeasure = m_SetsPP.bConvertToSdr && m_SetsPP.bSdrToneMapping && m_SetsPP.bUseD3D11;
+		const BOOL bMeasure = m_SetsPP.bConvertToSdr && m_SetsPP.bSdrToneMapping;
 		GetDlgItem(IDC_CHECK_SDRMEASURE).EnableWindow(bMeasure);
 		const BOOL bTuning = bMeasure && m_SetsPP.bSdrMeasurePeak;
 		for (const int id : { IDC_STATIC_SDRWINDOW, IDC_EDIT_SDRWINDOW, IDC_STATIC_SDRWINDOWS,

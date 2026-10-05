@@ -1256,8 +1256,13 @@ BOOL CDX9VideoProcessor::InitMediaType(const CMediaType* pmt)
 				}
 			}
 			else if (m_srcExFmt.VideoTransferFunction == MFVideoTransFunc_HLG && m_bConvertToSdr) {
-				EXECUTE_ASSERT(S_OK == CreatePShaderFromResource(&m_pPSCorrection, IDF_PS_9_FIXCONVERT_HLG_TO_SDR));
-				m_strCorrection = L"HLG to SDR";
+				if (m_bSdrToneMapping) {
+					EXECUTE_ASSERT(S_OK == CreatePShaderFromResource(&m_pPSCorrection, IDF_PS_9_FIXCONVERT_HLG_TO_SDR_TM));
+					m_strCorrection = L"HLG to SDR, tone mapped";
+				} else {
+					EXECUTE_ASSERT(S_OK == CreatePShaderFromResource(&m_pPSCorrection, IDF_PS_9_FIXCONVERT_HLG_TO_SDR));
+					m_strCorrection = L"HLG to SDR";
+				}
 			}
 			else if (m_srcExFmt.VideoPrimaries == MFVideoPrimaries_BT2020) {
 				EXECUTE_ASSERT(S_OK == CreatePShaderFromResource(&m_pPSCorrection, IDF_PS_9_FIX_BT2020));

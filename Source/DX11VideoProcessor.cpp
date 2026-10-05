@@ -2210,8 +2210,15 @@ BOOL CDX11VideoProcessor::InitMediaType(const CMediaType* pmt)
 					m_strCorrection = L"HLG to PQ";
 				}
 				else if (m_bConvertToSdr) {
-					resId = IDF_PS_11_FIXCONVERT_HLG_TO_SDR;
-					m_strCorrection = L"HLG to SDR";
+					if (m_bSdrToneMapping) {
+						// HLG white is 1000 nits, which is what the peak falls back to without MaxCLL.
+						// Measuring each frame is not offered here, since the histogram reads PQ.
+						resId = IDF_PS_11_FIXCONVERT_HLG_TO_SDR_TM;
+						m_strCorrection = L"HLG to SDR, tone mapped";
+					} else {
+						resId = IDF_PS_11_FIXCONVERT_HLG_TO_SDR;
+						m_strCorrection = L"HLG to SDR";
+					}
 				}
 				else if (m_srcExFmt.VideoPrimaries == MFVideoPrimaries_BT2020) {
 					// HLG compatible with SDR

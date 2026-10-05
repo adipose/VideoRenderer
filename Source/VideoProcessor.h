@@ -37,6 +37,20 @@ enum : int {
 	STEREO3D_HalfOverUnder_to_Interlace,
 };
 
+// The peak that the HDR to SDR conversion maps onto the display's white: what the file
+// claims, clamped to something usable.  Both processors call this, so they agree.
+inline float SdrToneMappingPeakNits(const float maxCLL, const float maxMasteringNits, const int displayNits)
+{
+	float peak = maxCLL;
+	if (peak <= 10.0f) {
+		peak = maxMasteringNits;
+	}
+	if (peak <= 10.0f) {
+		peak = 1000.0f; // nothing usable in the metadata
+	}
+	return std::clamp(peak, static_cast<float>(displayNits) + 1.0f, 10000.0f);
+}
+
 class CMpcVideoRenderer;
 
 class CVideoProcessor

@@ -925,14 +925,10 @@ float CDX11VideoProcessor::GetSdrToneMappingPeak() const
 		return 0.0f;
 	}
 	const auto& meta = m_hdr10.bValid ? m_hdr10 : m_lastHdr10;
-	float peak = meta.bValid ? static_cast<float>(meta.hdr10.MaxContentLightLevel) : 0.0f;
-	if (peak <= 10.0f && meta.bValid) {
-		peak = meta.hdr10.MaxMasteringLuminance / 10000.0f;
-	}
-	if (peak <= 10.0f) {
-		peak = 1000.0f; // nothing usable in the metadata
-	}
-	return std::clamp(peak, static_cast<float>(m_iSDRDisplayNits) + 1.0f, 10000.0f);
+	return SdrToneMappingPeakNits(
+		meta.bValid ? static_cast<float>(meta.hdr10.MaxContentLightLevel) : 0.0f,
+		meta.bValid ? meta.hdr10.MaxMasteringLuminance / 10000.0f : 0.0f,
+		m_iSDRDisplayNits);
 }
 
 // Tuning of the per-frame peak measurement

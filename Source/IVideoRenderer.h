@@ -200,7 +200,7 @@ struct Settings_t {
 		}
 		iHdrToggleDisplay               = HDRTD_Disabled;
 		bConvertToSdr                   = true;
-		iSdrToneMappingType             = SDRTM_Fixed;
+		iSdrToneMappingType             = SDRTM_Metadata;
 		iSdrPeakWindowMs                = SDR_PEAK_WINDOW_DEF;
 		iSdrPeakFloorNits               = SDR_PEAK_FLOOR_DEF;
 		bSdrPeakSceneCuts               = false;

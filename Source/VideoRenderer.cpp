@@ -292,7 +292,7 @@ CMpcVideoRenderer::CMpcVideoRenderer(LPUNKNOWN pUnk, HRESULT* phr)
 			m_Sets.bConvertToSdr = !!dw;
 		}
 		if (ERROR_SUCCESS == key.QueryDWORDValue(OPT_SdrToneMappingType, dw)) {
-			m_Sets.iSdrToneMappingType = discard<int>(dw, SDRTM_Fixed, SDRTM_Fixed, SDRTM_COUNT - 1);
+			m_Sets.iSdrToneMappingType = discard<int>(dw, SDRTM_Metadata, SDRTM_Fixed, SDRTM_COUNT - 1);
 		}
 		if (ERROR_SUCCESS == key.QueryDWORDValue(OPT_SdrPeakWindowMs, dw)) {
 			m_Sets.iSdrPeakWindowMs = discard<int>(dw, SDR_PEAK_WINDOW_DEF, SDR_PEAK_WINDOW_MIN, SDR_PEAK_WINDOW_MAX);
